@@ -1,0 +1,326 @@
+---
+title: 'Stats 250: Case Study 3 Resources'
+author: "Instructional Team"
+date: "`r Sys.Date()`"
+geometry: margin=0.75in
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\newpage
+
+## Learning Objectives
+1. Create a model with multiple quantitative predictors
+2. Visualize a model with an interaction
+3. Interpret the summary output for a model with an interaction
+4. Review helpful functions from previous labs
+
+
+## Coding Examples
+
+### Load Data and Packages
+
+Before we get started, be sure to load the following packages. 
+
+```{r load_packages, message = FALSE, warning = FALSE}
+library(ggplot2)
+```
+
+We will also take this time to read in our data set. To start, we will be using the `usedcars` data set from the previous lab. As a reminder...
+
+In an attempt to model the price of used cars, data were collected for a random sample of 60 used cars consisting of three different car models (Honda Accord, Nissan Maxima, and Mazda 6). The data were collected from cars.com and include the following variables:
+
+1. `Model`: the model of the car (Accord, Maxima, or Mazda6)
+2. `Age`: the age of the car (in years)
+3. `Price`: the price of the car (in thousands of dollars)
+4. `Mileage`: the mileage of the car (in thousands of miles)
+
+Run the code chunks below to read and preview the data. 
+
+```{r read_usedcars}
+load("usedcars.Rda")
+```
+
+```{r preview_usedcars}
+head(usedcars)
+```
+
+
+### Multiple Linear Regression Models
+
+In the previous lab, we found that age and mileage *separately* exhibited strong negative linear relationships with the response, selling price.
+
+```{r correlation_example}
+cor(usedcars$Age, usedcars$Price)
+cor(usedcars$Mileage, usedcars$Price)
+```
+
+If we created a linear model that predicted selling price using *both* of these predictors, would it outperform the simple linear regression model that used *only* age?
+
+First, let's create the summary output for the model that uses age as the only predictor.
+
+```{r simple_linear_regression_model_example}
+lm_cars <- lm(Price ~ Age, data = usedcars)
+```
+
+```{r summary_output_lm_cars}
+summary(lm_cars)
+```
+
+Now, let's create a new *multiple* linear regression model that uses age *and* mileage as predictors. To create a model with multiple predictors (and no interactions), we separate the predictors with a plus sign. 
+
+```{r multiple_linear_regression_model_example}
+lm_cars2 <- lm(Price ~ Age + Mileage, data = usedcars)
+```
+
+```{r summary_output_lm_cars2}
+summary(lm_cars2)
+```
+
+Does the addition of mileage improve the model’s ability to predict selling price? We can compare the values of the *adjusted* R-squared to decide. 
+
+The *adjusted* R-squared takes into account the number of predictors the model uses (penalizing models with a higher number of predictors). *Therefore, when comparing two models that have a different number of predictors, the adjusted R-squared should be used.*
+
+In the used cars analysis, we find...
+
+- Model using Age: adjusted R-squared = 0.7937
+- Model using Age and Mileage: adjusted R-squared = 0.8098
+
+While the value increases, the overall improvement is rather small. Originally, we found a very strong relationship between mileage and selling price...so why wasn't the improvement larger when adding this variable to the model?
+
+We need to explore the relationship between the two predictors - age and mileage!
+
+```{r used_cars_scatterplot_example}
+ggplot(data = usedcars, aes(x = Age, y = Mileage)) + 
+  
+  geom_point() + 
+  
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  
+  labs(title = "Scatterplot of Mileage vs Age",
+       x = "Age (in years)",
+       y = "Mileage (in thousands of miles)")
+```
+
+```{r correlation_predictors}
+cor(usedcars$Age, usedcars$Mileage)
+```
+
+We find a strong relationship between the two predictors - evidence of *collinearity*!
+
+
+### Collinearity 
+
+When two predictors carry similar information (i.e., are highly correlated with each other), we may not see a large improvement when adding the pair of them to the model. Collinearity makes it hard to determine which predictor is truly influencing the response. Collinearity inflates standard errors, weakens individual p-values, and can distort the interpretation of coefficients - even when the overall model looks strong.
+
+
+### Interactions
+
+Interactions refer to situations where the relationship between an explanatory variable (X) and the response variable (Y) *is influenced by the group of another (categorical) explanatory variable*.
+
+In Dive Deeper 2 of the previous lab, you explored whether car model (a categorical predictor) influenced the linear relationship between price (Y) and age (X). You visually compared the estimated regression lines of each car model to assess if there were substantial differences in the slopes. This is an example of how to analyze an interaction.
+
+Creating a scatterplot that helps analyze an interaction isn't too tricky! We simply specify the grouping variable in the `aes()` component of the code (and update the plot title) - and voila! 
+
+```{r scatterplot_with_an_intercation_example}
+ggplot(data = usedcars, aes(x = Age, 
+                            y = Price, 
+                            color = Model)) + 
+  
+  geom_point() + 
+  
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  
+  labs(title = "Scatterplot of Price vs Age by Model",
+       x = "Age (in years)",
+       y = "Price (in $1000s)",
+       color = "Car Model")
+```
+
+How do we create a linear model with an interaction? Instead of using a plus sign (+) between the predictors, we use an asterisk (*).  
+
+To create, store, and generate the model that corresponds to the plot above, we would have the following code:
+
+```{r model_With_an_interaction_example}
+lm_cars3 <- lm(Price ~ Model * Age, data = usedcars) 
+```
+
+```{r summary_output_lm_cars3}
+summary(lm_cars3)
+```
+
+While the *response variable must come first* in the `lm()` function, the order of the predictors is inconsequential. We recommend, however, that you add the categorical predictor first - as it make the output a little bit easier to digest. 
+
+What is the "reference group" for the linear model above? 
+
+The three car models present in the data set are Accord, Maxima, and Mazda6. As Accord is not found in the summary output above, this becomes makes Accord the reference group. This means that the estimated intercept (21.5623) and estimated slope of Age (-1.3409) are the corresponding estimates for Accords. 
+
+- Accord: yhat = 21.5623 + (-1.3409)x
+
+While you have explored the adjustments of the estimated *intercepts* in lecture, you have not yet explored the adjusted of the estimated *slopes*. The adjustments to the estimated *slopes* are found in the model terms that have a colon (:). Let's breakdown what the other values represent in the summary output.
+
+- `ModelMaxima` (1.1137) is the adjustment to the estimated **intercept** for *Maximas*
+- `ModelMazda6` (-3.2466) is the adjustment to the estimated **intercept** for *Mazda6s*
+
+- `ModelMaxima:Age` (-0.1685) is the adjustment to the estimated **slope** for *Maximas*
+- `ModelMazda6:Age` (0.2015) is the adjustment to the estimated **slope** for *Mazda6s*
+
+Using these adjustments, we can compute the estimated regression equations for Maximas and Mazda6s:
+
+- Maxima: yhat = (21.5623 + 1.1137) + (-1.3409 + -0.1685)x = 22.6760 + (-1.5094)x
+- Mazda6: yhat = (21.5623 + -3.2466) + (-1.3409 + 0.2015)x = 18.3157 + (-1.1394)x
+
+We now return to the question presented in Dive Deeper 2 of the previous lab - Does the model of the car appear to have a substantial influence on the slope of the linear relationship? We found the estimated slopes to be:
+
+- Estimated slope for Accord: -1.3409 
+- Estimated slope for Maxima: -1.5094 
+- Estimated slope for Mazda6: -1.1394 
+
+These values match what is observed in the scatterplot above. Maxima had the steepest (or most negative) slope - and Mazda6 had the shallowest (or least negative) slope. When comparing the three slopes, however, they are all relatively similar. 
+
+If we wanted to *formally* assess if differences between the slopes exists, we would use the p-values of the interactions terms (the terms with colons).
+
+- `ModelMaxima:Age` has a p-value of 0.4525 indicating there is **not enough evidence** to suggest that a **difference in slopes** exists between *Accords* and *Maximas* 
+
+- `ModelMazda6:Age` has a p-value of 0.2655 indicating there is **not enough evidence** to suggest that a **difference in slopes** exists between *Accords* and *Mazda6s* 
+
+
+Woof! That's a lot to digest! It may take some time to really understand the output of this model, but at the end of the day we have the following high-level idea for analyzing interactions. 
+
+- Do the slopes differ by groups? 
+- We can use the plot to help answer this question
+- Or we can use the p-values of the interaction terms (the terms with colons) 
+
+
+### Penguins Example
+
+Let's use our handy-dandy `penguins` data set one final time this semester. 
+
+```{r read_penguins}
+penguins <- read.csv("penguins.csv")
+```
+
+Suppose we wanted to determine if the linear relationship between body mass (Y) and flipper length (X) *is influenced by the species of the penguin*. 
+
+We can create a plot to explore this interaction:
+
+```{r penguin_interaction_scatterplot}
+ggplot(data = penguins, aes(x = flipper_length_mm, 
+                            y = body_mass_g, 
+                            color = species)) + 
+  
+  geom_point() + 
+  
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  
+  labs(title = "Scatterplot of Body Mass vs Flipper Length by Species",
+       x = "Flipper Length (in mm)",
+       y = "Body Mass (in g)",
+       color = "Species")
+```
+
+Do the slopes appear to differ by species?
+
+The estimated slopes for Adelie and Chinstrap appear to be similar - while the estimated slope for Gentoo is a bit steeper. This suggests that the effect of flipper length on body mass depends on species.
+
+Let's compute the estimated regression equations for each species:
+
+```{r penguin_interaction_model}
+lm_penguins <- lm(body_mass_g ~ species * flipper_length_mm, data = penguins)
+```
+
+Remember, we use as asterisk (*) to add an interaction between the predictors.
+
+```{r summary_output_lm_penguins}
+summary(lm_penguins)
+```
+
+Adelie penguins are the reference group, as the species does not appear in the output above. Therefore, the estimated regression equation for Adelie penguins is:
+
+- Adelie: yhat = -2508.088 + 32.689x
+
+We then use the adjustments for the estimated intercepts and estimated slopes to get the estimated regression equations for Chinstrap and Gentoo penguins:
+
+- Chinstrap: yhat = (-2508.088 + -529.108) + (32.689 + 1.884)x = -3037.196 + 34.573x
+- Gentoo: yhat = (-2508.088 + -4166.117) + (32.689 + 21.477)x = -6674.205 + 54.166x
+
+The estimated slopes are:
+
+- Estimated slope for Adelie: 32.689
+- Estimated slope for Chinstrap: 34.573
+- Estimated slope for Gentoo: 54.166
+
+
+Just as we observed in the scatterplot, the estimated slopes for Adelie and Chinstrap penguins appear to be similar - while the estimated slope for Gentoo is quite a bit larger. 
+
+
+To *formally* assess if differences between the slopes exists, we would use the p-values of the interactions terms (the terms with colons).
+
+- `speciesChinstrap:flipper_length_mm` has a p-value of 0.81077 indicating there is **not enough** evidence to suggest that a **difference in slopes** exists between *Adelie* and *Chinstrap* 
+
+- `speciesGentoo:flipper_length_mm` has a p-value of 0.00223 indicating there is **very strong** evidence to suggest that a **difference in slopes** exists between *Adelie* and *Gentoo* 
+
+
+What questions do you have?
+
+
+
+## Function Review
+
+In order to complete the case study, you will need some functions from previous labs. Instead of navigating back and forth, we have included some coding examples below. 
+
+### Scatterplots 
+
+Visualize the relationship of two quantitative variables.
+
+```{r scatterplot_example}
+ggplot(data = penguins, aes(x = flipper_length_mm, y = body_mass_g)) + 
+  
+  geom_point() + 
+  
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  
+  labs(title = "Scatterplot of Body Mass vs Flipper Length",
+       x = "Flipper Length (in mm)",
+       y = "Body Mass (in g)")
+```
+
+
+
+### Simple Linear Regression Model
+
+Create and store a linear regression model with one quantitative predictor.
+
+```{r simple_linear_model_example}
+lm_example <- lm(body_mass_g ~ flipper_length_mm, data = penguins)
+```
+
+Pass the stored model through the `summary()` function for more information. 
+
+```{r summary_output_simple_linear_model}
+summary(lm_example)
+```
+
+
+### Confidence Interval
+
+Create a confidence interval for the population-level slope. 
+
+```{r confidence_interval_example}
+confint(lm_example, level = 0.95)
+```
+
+Remember, in the output above, we want to focus on the second row of output. This row corresponds to the confidence interval for the population-level *slope*!
+
+
+Click on the file titled `CaseStudy3_Report.Rmd` to navigate to the case study assignment!
+
+
+
+
